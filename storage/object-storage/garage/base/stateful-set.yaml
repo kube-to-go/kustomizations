@@ -1,0 +1,75 @@
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: garage
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: garage
+  template:
+    metadata:
+      labels:
+        app: garage
+    spec:
+      securityContext:
+        runAsUser: 1000
+        runAsGroup: 1000
+        fsGroup: 1000
+      initContainers:
+      - name: volume-permissions
+        image: busybox
+        command: ["sh", "-c", "chmod 777 /opt/data /opt/meta && chown 1000:1000 /opt/data /opt/meta"]
+        volumeMounts:
+        - name: data
+          mountPath: /opt/data
+        - name: metadata
+          mountPath: /opt/meta
+        securityContext:
+          runAsUser: 0
+          runAsGroup: 0
+      containers:
+      - name: garage
+        # https://garagehq.deuxfleurs.fr/download
+        # https://hub.docker.com/r/dxflrs/garage
+        image: dxflrs/garage:v2.1.0
+        volumeMounts:
+        - name: configuration
+          mountPath: /etc/garage.toml
+          subPath: garage.toml
+        - name: data
+          mountPath: /var/lib/garage/data
+        - name: metadata
+          mountPath: /var/lib/garage/meta
+        ports:
+        - name: s3-api
+          containerPort: 3900
+        - name: rpc
+          containerPort: 3901
+        - name: s3-web
+          containerPort: 3902
+        - name: admin
+          containerPort: 3903
+        - name: k2v-api
+          containerPort: 3904
+        startupProbe:
+          httpGet:
+            # https://garagehq.deuxfleurs.fr/documentation/reference-manual/admin-api
+            path: /health
+            port: admin
+          # Wait 1 second before checking, then check and wait up to 60s
+          initialDelaySeconds: 1
+          periodSeconds: 2
+          failureThreshold: 30
+      volumes:
+      - name: configuration
+        configMap:
+          name: garage
+      - name: data
+        hostPath:
+          path: /srv/persistence/garage
+          type: DirectoryOrCreate
+      - name: metadata
+        hostPath:
+          path: /srv/persistence/garage.meta
+          type: DirectoryOrCreate
