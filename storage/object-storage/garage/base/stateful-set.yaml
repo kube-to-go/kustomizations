@@ -65,11 +65,4 @@ spec:
       - name: configuration
         configMap:
           name: garage
-      - name: data
-        hostPath:
-          path: /srv/persistence/garage
-          type: DirectoryOrCreate
-      - name: metadata
-        hostPath:
-          path: /srv/persistence/garage.meta
-          type: DirectoryOrCreate
+      # NOTE: define `data` and `metadata` volumes
