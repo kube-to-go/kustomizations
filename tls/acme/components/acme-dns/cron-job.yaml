@@ -1,0 +1,132 @@
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: issue
+spec:
+  schedule: "0 5 15 * *"
+  jobTemplate:
+    spec:
+      backoffLimit: 0
+      activeDeadlineSeconds: 600  # The job should not take any longer than 10m
+      template:
+        spec:
+          serviceAccountName: secret-manager
+
+          containers:
+          # https://github.com/acmesh-official/acme.sh/wiki/dnsapi#1-cloudflare-option
+          # https://github.com/acmesh-official/acme.sh/wiki/dnsapi#71-use-desecio
+          - name: acme-sh
+            image: ghcr.io/usagi-flow/kube-acme:latest-amd64
+            env:
+            - name: DNS_API
+              valueFrom:
+                configMapKeyRef:
+                  name: configuration
+                  key: dns-api
+            - name: DOMAIN
+              valueFrom:
+                configMapKeyRef:
+                  name: configuration
+                  key: domain
+            - name: STATE_FILE
+              value: /srv/transient/state
+            envFrom:
+            - secretRef:
+                name: credentials
+            command:
+            - /bin/sh
+            - -c
+            - |
+              set -e
+
+              # TODO: temporarily skipping issuing
+              # echo -n 1 > "$STATE_FILE"
+              # exit 0
+
+              # Register account (skip if already registered)
+              # acme.sh --register-account -m your-email@nehu.dedyn.io
+
+              echo -n 0 > "$STATE_FILE"
+
+              echo "Issuing certificate"
+              acme.sh --issue --dns "$DNS_API" \
+                --keylength ec-256 \
+                --server letsencrypt \
+                --log \
+                -d "$DOMAIN" \
+                -d "*.$DOMAIN"
+
+              mkdir -pv "/srv/persistent/acme/$DOMAIN"
+              ls -alh ~/.acme.sh
+              ls -alh ~/.acme.sh/${DOMAIN}_ecc
+
+              # NOTE: reloadcmd could be used to restart a container if needed
+              echo "Persisting certificate"
+              acme.sh --install-cert -d "$DOMAIN" \
+                --cert-file "/srv/persistent/acme/$DOMAIN/cert.pem" \
+                --key-file "/srv/persistent/acme/$DOMAIN/key.pem" \
+                --fullchain-file "/srv/persistent/acme/$DOMAIN/fullchain.pem" \
+                --reloadcmd "echo Certificate renewed"
+
+              echo -n 1 > "$STATE_FILE"
+
+            volumeMounts:
+            - name: persistent
+              mountPath: /srv/persistent/acme
+            - name: transient
+              mountPath: /srv/transient
+
+          - name: deploy-secret
+            image: ghcr.io/usagi-flow/kube-acme:latest-amd64
+            env:
+            - name: DOMAIN
+              valueFrom:
+                configMapKeyRef:
+                  name: configuration
+                  key: domain
+            - name: STATE_FILE
+              value: /srv/transient/state
+            - name: TARGET_NAMESPACE
+              valueFrom:
+                configMapKeyRef:
+                  name: configuration
+                  key: target-namespace
+            command:
+            - /bin/sh
+            - -c
+            - |
+              set -e
+
+              echo "Waiting for the ACME container to start"
+              while [ ! -f "$STATE_FILE" ]; do
+                sleep 2
+              done
+
+              echo "Waiting for the ACME container to finish"
+              while [ "$(cat "$STATE_FILE")" != "1" ]; do
+                sleep 2
+              done
+
+              echo "Deploying secret"
+              kubectl create secret tls -n "$TARGET_NAMESPACE" "$DOMAIN" \
+                --cert="/srv/persistent/acme/$DOMAIN/fullchain.pem" \
+                --key="/srv/persistent/acme/$DOMAIN/key.pem" \
+                --dry-run=client -o yaml | kubectl apply -f -
+              # (dry run + apply to avoid an error if the secret exists already)
+
+              echo "Secret deployed successfully"
+
+            volumeMounts:
+            - name: persistent
+              mountPath: /srv/persistent/acme
+            - name: transient
+              mountPath: /srv/transient
+
+          restartPolicy: Never
+          volumes:
+          # The certificate files could be persisted outside of the cluster (in addition to the secret).
+          # This is not recommended by default, as the (redundant) copy is not protected by the kubernetes RBAC.
+          - name: persistent
+            emptyDir: {}
+          - name: transient
+            emptyDir: {}
