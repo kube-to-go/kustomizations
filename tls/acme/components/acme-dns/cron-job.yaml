@@ -107,12 +107,28 @@ spec:
                 sleep 2
               done
 
-              echo "Deploying secret"
+              timestamp="$(date -Iseconds)"
+              tls_crt="/srv/persistent/acme/$DOMAIN/fullchain.pem"
+              tls_key="/srv/persistent/acme/$DOMAIN/key.pem"
+
+              fp_sha256="$(openssl x509 -in "$tls_crt" -noout -fingerprint -sha256 | sed 's/^.*=//')"
+              fp_sha1="$(openssl x509 -in "$tls_crt" -noout -fingerprint -sha1 | sed 's/^.*=//')"
+              pem_pubkey="$(openssl x509 -in "$tls_crt" -noout -pubkey)"
+
+              echo "Fingerprint (sha256): $fp_sha256"
+              echo "Fingerprint (sha1): $fp_sha1"
+              echo "Public key (PEM): $pem_pubkey"
+
+              echo "Deploying secret (namespace: $TARGET_NAMESPACE, name: $DOMAIN)"
               kubectl create secret tls -n "$TARGET_NAMESPACE" "$DOMAIN" \
-                --cert="/srv/persistent/acme/$DOMAIN/fullchain.pem" \
-                --key="/srv/persistent/acme/$DOMAIN/key.pem" \
+                --cert="$tls_crt" \
+                --key="$tls_key" \
                 --dry-run=client -o yaml | kubectl apply -f -
               # (dry run + apply to avoid an error if the secret exists already)
+
+              kubectl annotate secret --overwrite -n "$TARGET_NAMESPACE" "$DOMAIN" "certificate/fp-sha256=$fp_sha256"
+              kubectl annotate secret --overwrite -n "$TARGET_NAMESPACE" "$DOMAIN" "certificate/fp-sha1=$fp_sha1"
+              kubectl annotate secret --overwrite -n "$TARGET_NAMESPACE" "$DOMAIN" "certificate/deployed=$timestamp"
 
               echo "Secret deployed successfully"
 

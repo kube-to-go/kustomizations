@@ -26,6 +26,16 @@ A minimal directory structure with two domains will look like this:
 
 **TODO**
 
+```yaml
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+namespace: acme
+
+resources:
+- git@github.com:kube-to-go/kustomizations.git/tls/acme/base
+```
+
 ## Overlay Kustomizations
 
 For each domain/overlay, proceed as follows.
@@ -36,11 +46,14 @@ Create your `overlays/my-domain-com/kustomization.yaml`, adjusting the configura
 apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 
+namespace: acme
+
 # Required and must be unique if using multiple domains
 nameSuffix: -xyz
 
 components:
-- ../../components/acme-dns
+- git@github.com:kube-to-go/kustomizations.git/tls/acme/components/acme-dns
+#- ../../components/acme-dns
 
 # Main DNS provider and domain configuration (adjust values below)
 configMapGenerator:
