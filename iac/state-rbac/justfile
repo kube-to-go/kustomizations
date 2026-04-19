@@ -1,0 +1,16 @@
+namespace := "iac"
+service-account := "opentofu"
+
+token := `kubectl get secret opentofu-sa-token -n iac -o jsonpath='{.data.token}' | base64 -d`
+current-ctx := `kubectl config current-context`
+server := `kubectl config view --minify -o jsonpath='{.clusters[0].cluster.server}'`
+ca := `kubectl config view --minify --raw -o jsonpath='{.clusters[0].cluster.certificate-authority-data}'`
+
+generate-kubeconfig:
+	@echo "# Generate on a machine with cluster access, in <services-repo>/iac, with \`just generate-kubeconfig\`"
+	@yq -n '.apiVersion = "v1"' | \
+		yq '.kind = "Config"' - | \
+		yq '.clusters = [{"cluster": {"server": "{{server}}", "certificate-authority-data": "{{ca}}"}, "name": "{{current-ctx}}"}]' - | \
+		yq '.contexts = [{"context": {"cluster": "{{current-ctx}}", "user": "{{service-account}}", "namespace": "{{namespace}}"}, "name": "{{current-ctx}}"}]' - | \
+		yq '.current-context = "{{current-ctx}}"' - | \
+		yq '.users = [{"name": "{{service-account}}", "user": {"token": "{{token}}"}}]' -
