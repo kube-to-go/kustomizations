@@ -1,3 +1,5 @@
+set quiet
+
 namespace := "iac"
 service-account := "opentofu"
 
@@ -7,10 +9,17 @@ server := `kubectl config view --minify -o jsonpath='{.clusters[0].cluster.serve
 ca := `kubectl config view --minify --raw -o jsonpath='{.clusters[0].cluster.certificate-authority-data}'`
 
 generate-kubeconfig:
-	@echo "# Generate on a machine with cluster access, in <services-repo>/iac, with \`just generate-kubeconfig\`"
-	@yq -n '.apiVersion = "v1"' | \
+	echo "# Generate on a machine with cluster access, in <services-repo>/iac, with \`just generate-kubeconfig\`"
+	yq -n '.apiVersion = "v1"' | \
 		yq '.kind = "Config"' - | \
 		yq '.clusters = [{"cluster": {"server": "{{server}}", "certificate-authority-data": "{{ca}}"}, "name": "{{current-ctx}}"}]' - | \
 		yq '.contexts = [{"context": {"cluster": "{{current-ctx}}", "user": "{{service-account}}", "namespace": "{{namespace}}"}, "name": "{{current-ctx}}"}]' - | \
 		yq '.current-context = "{{current-ctx}}"' - | \
 		yq '.users = [{"name": "{{service-account}}", "user": {"token": "{{token}}"}}]' -
+
+generate-env:
+	echo 'export KUBE_CONTEXT="{{current-ctx}}"'
+	echo 'export KUBE_NAMESPACE="{{namespace}}"'
+	echo 'export KUBE_TOKEN="{{token}}"'
+	echo 'export KUBE_HOST="{{server}}"'
+	echo 'export KUBE_CA="{{ca}}"'

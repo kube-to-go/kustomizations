@@ -20,10 +20,11 @@ Apply your kustomization with `kubectl apply -k .`.
 
 ### Obtaining a kubeconfig/token
 
-For your convenience, a `justfile` allows you to generate a kubeconfig for the service account:
+Optionally, a `justfile` provides commands to generate credentials for the service account:
 
 ```sh
 just generate-kubeconfig > kubeconfig.yaml
+eval $(just generate-env)  # For environment variables such as KUBE_HOST, KUBE_TOKEN, ...
 ```
 
 This writes a kubeconfig file with the token. Adjust `namespace` and `service-account` in the justfile if you used different values.
