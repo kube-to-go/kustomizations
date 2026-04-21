@@ -1,5 +1,7 @@
 set quiet
 
+# TODO: deduplicate names
+
 namespace := "iac"
 service-account := "opentofu"
 
@@ -9,7 +11,7 @@ server := `kubectl config view --minify -o jsonpath='{.clusters[0].cluster.serve
 ca := `kubectl config view --minify --raw -o jsonpath='{.clusters[0].cluster.certificate-authority-data}'`
 
 generate-kubeconfig:
-	echo "# Generate on a machine with cluster access, in <services-repo>/iac, with \`just generate-kubeconfig\`"
+	echo "# Generated on a machine with cluster access, in <services-repo>/iac, with \`just generate-kubeconfig\`"
 	yq -n '.apiVersion = "v1"' | \
 		yq '.kind = "Config"' - | \
 		yq '.clusters = [{"cluster": {"server": "{{server}}", "certificate-authority-data": "{{ca}}"}, "name": "{{current-ctx}}"}]' - | \
