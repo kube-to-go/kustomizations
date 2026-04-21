@@ -22,4 +22,4 @@ generate-env:
 	echo 'export KUBE_NAMESPACE="{{namespace}}"'
 	echo 'export KUBE_TOKEN="{{token}}"'
 	echo 'export KUBE_HOST="{{server}}"'
-	echo 'export KUBE_CA="{{ca}}"'
+	echo 'export KUBE_CLUSTER_CA_CERT_DATA="'"$(echo -n "{{ca}}" | base64 -d)"'"'
