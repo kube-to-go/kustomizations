@@ -1,6 +1,6 @@
-# state-rbac
+# iac-state
 
-A minimal kustomization providing a ServiceAccount with RBAC for hosting an OpenTofu/Terraform state backend in your cluster.
+A minimal kustomization providing a ServiceAccount with permissions for hosting an OpenTofu/Terraform state backend in your cluster.
 
 ## Usage example
 
@@ -13,7 +13,7 @@ kind: Kustomization
 namespace: iac
 
 resources:
-- https://github.com/kube-to-go/kustomizations/iac/state-rbac/base
+- https://github.com/kube-to-go/kustomizations/rbac/iac-state/base
 ```
 
 Apply your kustomization with `kubectl apply -k .`.
