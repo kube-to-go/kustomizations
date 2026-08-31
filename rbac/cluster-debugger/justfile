@@ -1,0 +1,20 @@
+cluster := "cloud"
+namespace := "debug"
+
+generate-kube-access-token duration="12h":
+	kubectl create token kube-access -n {{namespace}} --duration={{duration}}
+
+generate-kubeconfig token="":
+	#!/bin/sh
+	set -eu
+	server=$(kubectl config view --minify -o jsonpath='{.clusters[0].cluster.server}')
+	[ -n "$server" ] || { echo "no server found in current kubeconfig" >&2; exit 1; }
+	ca=$(kubectl config view --minify --raw -o jsonpath='{.clusters[0].cluster.certificate-authority-data}')
+	[ -n "$ca" ] || { ca_file=$(kubectl config view --minify -o jsonpath='{.clusters[0].cluster.certificate-authority}'); ca=$(base64 "$ca_file" | tr -d '\n'); }
+	token='{{token}}'
+	[ -n "$token" ] || token=$(just generate-kube-access-token)
+	SERVER=$server CA=$ca TOKEN=$token yq -n '.apiVersion = "v1" | .kind = "Config" | .clusters = [{"name": "{{cluster}}", "cluster": {"server": env(SERVER), "certificate-authority-data": env(CA)}}] | .users = [{"name": "{{cluster}}", "user": {"token": env(TOKEN)}}] | .contexts = [{"name": "{{cluster}}", "context": {"cluster": "{{cluster}}", "user": "{{cluster}}"}}] | .current-context = "{{cluster}}"'
+
+revoke-kube-access:
+	kubectl delete serviceaccount kube-access -n {{namespace}}
+	@echo "Re-apply the kustomization to recreate a fresh identity: kubectl apply -k ."
