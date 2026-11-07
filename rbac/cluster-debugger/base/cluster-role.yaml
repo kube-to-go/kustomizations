@@ -3,9 +3,32 @@ kind: ClusterRole
 metadata:
   name: kube-access
 rules:
-- apiGroups: ["*"]
-  resources: ["*"]
-  verbs: ["get", "list", "watch"]
+# Read-only permissions, to be used in addition to the "view" ClusterRole:
 - apiGroups: [""]
-  resources: ["secrets"]
-  verbs: ["list", "watch"]
+  resources: [nodes, nodes/status, persistentvolumes, persistentvolumes/status]
+  verbs: [get, list, watch]
+- apiGroups: ["apiextensions.k8s.io"]
+  resources: [customresourcedefinitions, customresourcedefinitions/status]
+  verbs: [get, list, watch]
+- apiGroups: ["apiregistration.k8s.io"]
+  resources: [apiservices, apiservices/status]
+  verbs: [get, list, watch]
+- apiGroups: ["coordination.k8s.io"]
+  resources: [leasecandidates, leases]
+  verbs: [get, list, watch]
+- apiGroups: ["metrics.k8s.io"]
+  resources: [nodes, pods]
+  verbs: [get, list, watch]
+- apiGroups: ["rbac.authorization.k8s.io"]
+  resources: [clusterrolebindings, clusterroles, rolebindings, roles]
+  verbs: [get, list, watch]
+- apiGroups: ["storage.k8s.io"]
+  resources:
+  - csidrivers
+  - csinodes
+  - csistoragecapacities
+  - storageclasses
+  - volumeattachments
+  - volumeattachments/status
+  - volumeattributesclasses
+  verbs: [get, list, watch]
